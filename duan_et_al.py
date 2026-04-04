@@ -53,23 +53,31 @@ def find_pivots(B, S, adj, d_hat, k):
 
 # Algoritmo 2: Base Case [2, 9]
 def base_case(B, S, adj, d_hat, k):
-    x = list(S) # S é um singleton {x} [2]
-    U0 = set()
-    h = [(d_hat[x], x)]
+    # S é um singleton {x}. Extraímos o único elemento do set:
+    x = next(iter(S)) 
+    
+    # Inicializa U0 com o vértice inicial
+    U0 = {x} 
+    # Agora x é um tipo hashável (string ou int), funcionando como chave para d_hat
+    h = [(d_hat[x], x)] 
     
     while h and len(U0) < k + 1:
         d, u = heapq.heappop(h)
-        if u in U0: continue
-        U0.add(u)
+        if d > d_hat[u]:
+            continue
         
         for v, weight in adj.get(u, []):
-            if d_hat[u] + weight <= d_hat[v] and d_hat[u] + weight < B:
+            # Relaxamento conforme a regra: d_hat[v] = d_hat[u] + wuv [3, 4]
+            if d_hat[u] + weight < d_hat[v] and d_hat[u] + weight < B:
                 d_hat[v] = d_hat[u] + weight
-                heapq.heappush(h, (d_hat[v], v))
-                
+                if v not in U0:
+                    U0.add(v)
+                    heapq.heappush(h, (d_hat[v], v))
+                    
     if len(U0) <= k:
         return B, U0
     else:
+        # Define B' como a distância máxima encontrada para manter o limite [1, 4]
         B_prime = max(d_hat[v] for v in U0)
         return B_prime, {v for v in U0 if d_hat[v] < B_prime}
 
@@ -90,13 +98,14 @@ class SpecialDS:
     def pull(self):
         S_prime = set()
         last_val = self.B
+
         for _ in range(min(self.M, len(self.elements))):
             val, key = heapq.heappop(self.elements)
             S_prime.add(key)
             last_val = val
-        
-        # x deve separar S' do restante [11]
-        remaining_min = self.elements if self.elements else self.B
+
+        remaining_min = self.elements[0][0] if self.elements else self.B
+
         return remaining_min, S_prime
 
 # Algoritmo 3: BMSSP [3, 12]
@@ -151,3 +160,35 @@ def bmssp(l, B, S, adj, d_hat, k, t):
     B_prime = B # Simplificação para retorno bem-sucedido
     U.update({x for x in W if d_hat[x] < B_prime})
     return B_prime, U
+
+def transformar_para_grau_constante(grafo_original):
+    novo_adj = {}
+
+    for v, vizinhos in grafo_original.items():
+        n = len(vizinhos)
+
+        # Se não tem vizinhos, cria pelo menos um nó
+        if n == 0:
+            novo_adj[f"{v}_node_0"] = []
+            continue
+
+        for i in range(n):
+            u_original, peso = vizinhos[i]
+            no_atual = f"{v}_node_{i}"
+            proximo_no_ciclo = f"{v}_node_{(i+1)%n}"
+
+            if no_atual not in novo_adj:
+                novo_adj[no_atual] = []
+
+            # ciclo interno
+            novo_adj[no_atual].append((proximo_no_ciclo, 0.0))
+
+            # distribuição das arestas externas
+            grau_u = len(grafo_original[u_original])
+            destino_idx = i % max(1, grau_u)
+
+            novo_adj[no_atual].append(
+                (f"{u_original}_node_{destino_idx}", peso)
+            )
+
+    return novo_adj

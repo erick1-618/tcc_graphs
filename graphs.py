@@ -57,31 +57,3 @@ def bellman_ford(grafo, fonte):
             break
             
     return distancias
-
-def transformar_para_grau_constante(grafo_original):
-    """
-    Transforma um grafo em um novo grafo com grau constante.
-    Args:       grafo_original (dict): O grafo original representado como um dicionário de adjacências.
-    Returns:    dict: O novo grafo com grau constante.
-    """
-
-    novo_adj = {}
-    for v, vizinhos in grafo_original.items():
-        # Cria um ciclo de nós internos para v: v_in_1 -> v_in_2 -> ... -> v_in_n -> v_in_1
-        # Cada aresta interna tem peso 0.0
-        # Cada vizinho externo é conectado a um desses nós do ciclo
-        n = len(vizinhos)
-        for i in range(n):
-            u_original, peso = vizinhos[i]
-            no_atual = f"{v}_node_{i}"
-            proximo_no_ciclo = f"{v}_node_{(i+1)%n}"
-            
-            # Aresta do ciclo (peso zero)
-            if no_atual not in novo_adj: novo_adj[no_atual] = []
-            novo_adj[no_atual].append((proximo_no_ciclo, 0.0))
-            
-            # Aresta real para o vizinho (peso original)
-            # Nota: O destino deve ser o primeiro nó do ciclo do vizinho
-            novo_adj[no_atual].append((f"{u_original}_node_0", peso))
-            
-    return novo_adj
