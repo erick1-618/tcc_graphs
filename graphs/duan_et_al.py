@@ -1,194 +1,258 @@
-import math
 import heapq
+from collections import defaultdict
+from graphs.graphs import Graph
 
-# Parâmetros baseados nas fontes [5]
-def get_params(n):
-    log_n = math.log2(n) if n > 1 else 1
-    k = max(1, int(log_n**(1/3)))
-    t = max(1, int(log_n**(2/3)))
-    return k, t
+INF = float('inf')
 
-# Algoritmo 1: FindPivots [1]
-def find_pivots(B, S, adj, d_hat, k):
-    W = set(S)
-    W_layers = [set(S)]
-    
-    # Relaxamento de k passos (estilo Bellman-Ford) [1]
-    for i in range(1, k + 1):
-        current_layer = set()
-        for u in W_layers[-1]:
-            for v, weight in adj.get(u, []):
-                if d_hat[u] + weight <= d_hat[v]:
-                    d_hat[v] = d_hat[u] + weight
-                    if d_hat[v] < B:
-                        current_layer.add(v)
-        W.update(current_layer)
-        W_layers.append(current_layer)
-        
-        if len(W) > k * len(S): # Limite de tamanho de W [1]
-            return list(S), W
+# =========================
+# Base Case (Algoritmo 2)
+# =========================
+def base_case(graph, s, B, db, k):
+    U0 = set()
+    heap = [(db[s], s)]
 
-    # Construção da floresta F para identificar pivôs [8]
-    forest_adj = {u: [] for u in W}
-    for u in W:
-        for v, weight in adj.get(u, []):
-            if v in W and d_hat[v] == d_hat[u] + weight:
-                forest_adj[u].append(v)
-    
-    def count_nodes(u, visited):
-        count = 1
-        visited.add(u)
-        for v in forest_adj.get(u, []):
-            if v not in visited:
-                count += count_nodes(v, visited)
-        return count
+    while heap and len(U0) < k + 1:
+        dist_u, u = heapq.heappop(heap)
 
-    pivots = []
-    for u in S:
-        # Se a raiz u cobre uma árvore com >= k vértices, vira pivô [8]
-        if count_nodes(u, set()) >= k:
-            pivots.append(u)
-            
-    return pivots, W
-
-# Algoritmo 2: Base Case [2, 9]
-def base_case(B, S, adj, d_hat, k):
-    # S é um singleton {x}. Extraímos o único elemento do set:
-    x = next(iter(S)) 
-    
-    # Inicializa U0 com o vértice inicial
-    U0 = {x} 
-    # Agora x é um tipo hashável (string ou int), funcionando como chave para d_hat
-    h = [(d_hat[x], x)] 
-    
-    while h and len(U0) < k + 1:
-        d, u = heapq.heappop(h)
-        if d > d_hat[u]:
+        if u in U0:
             continue
-        
-        for v, weight in adj.get(u, []):
-            # Relaxamento conforme a regra: d_hat[v] = d_hat[u] + wuv [3, 4]
-            if d_hat[u] + weight < d_hat[v] and d_hat[u] + weight < B:
-                d_hat[v] = d_hat[u] + weight
-                if v not in U0:
-                    U0.add(v)
-                    heapq.heappush(h, (d_hat[v], v))
-                    
+
+        U0.add(u)
+
+        for v, w in graph.adj[u]:
+            if db[u] + w <= db[v] and db[u] + w < B:
+                db[v] = db[u] + w
+                heapq.heappush(heap, (db[v], v))
+
     if len(U0) <= k:
         return B, U0
     else:
-        # Define B' como a distância máxima encontrada para manter o limite [1, 4]
-        B_prime = max(d_hat[v] for v in U0)
-        return B_prime, {v for v in U0 if d_hat[v] < B_prime}
+        B_prime = max(db[v] for v in U0)
+        U = {v for v in U0 if db[v] < B_prime}
+        return B_prime, U
 
-# Mock da Estrutura de Dados do Lemma 3.3 [10, 11]
-class SpecialDS:
-    def __init__(self, M, B):
-        self.elements = [] # (valor, chave)
-        self.M = M
-        self.B = B
 
-    def insert(self, key, value):
-        heapq.heappush(self.elements, (value, key))
+# =========================
+# FindPivots (Algoritmo 1)
+# =========================
+def find_pivots(graph, S, B, db, k):
+    W = set(S)
+    Wi_prev = set(S)
 
-    def batch_prepend(self, records):
-        for val, key in records:
-            heapq.heappush(self.elements, (val, key))
+    for i in range(k):
+        Wi = set()
+        for u in Wi_prev:
+            for v, w in graph.adj[u]:
+                if db[u] + w <= db[v]:
+                    db[v] = db[u] + w
+                    if db[v] < B:
+                        Wi.add(v)
+        W |= Wi
+        Wi_prev = Wi
 
-    def pull(self):
-        S_prime = set()
-        last_val = self.B
+        if len(W) > k * len(S):
+            return set(S), W
 
-        for _ in range(min(self.M, len(self.elements))):
-            val, key = heapq.heappop(self.elements)
-            S_prime.add(key)
-            last_val = val
+    # Constrói F: arestas (u,v) com u,v ∈ W e db[v] == db[u] + wuv
+    # Para cada v em W, guarda seu pai na floresta F
+    parent = {}  # parent[v] = u significa que (u,v) ∈ F
+    for u in W:
+        for v, w in graph.adj[u]:
+            if v in W and db[u] + w == db[v]:
+                # Pela Assumption 2.1 do paper, caminhos têm comprimentos únicos
+                # então cada v tem no máximo um pai em F
+                parent[v] = u
 
-        remaining_min = self.elements[0][0] if self.elements else self.B
+    # Raízes de F: vértices em W sem pai, que devem pertencer a S
+    roots = {u for u in S if u not in parent}
 
-        return remaining_min, S_prime
+    # Para cada raiz em S, conta quantos vértices da árvore estão em W
+    def count_subtree(root):
+        count = 0
+        stack = [root]
+        visited = set()
+        while stack:
+            x = stack.pop()
+            if x in visited:
+                continue
+            visited.add(x)
+            count += 1
+            for v, w in graph.adj[x]:
+                if v in W and parent.get(v) == x:
+                    stack.append(v)
+        return count
 
-# Algoritmo 3: BMSSP [3, 12]
-def bmssp(l, B, S, adj, d_hat, k, t):
+    P = set()
+    for u in roots:
+        if count_subtree(u) >= k:
+            P.add(u)
 
-    """
-    Implementação do BMSSP, seguindo o artigo original
-    Args:
-    l: nível de recursão
-    B: limite superior para distâncias
-    S: conjunto de vértices
-    adj: representação do grafo
-    d_hat: estimativas de distância
-    k: parâmetro para pivôs
-    t: parâmetro para recursão
-    """
+    return P, W
 
+
+# =========================
+# Estrutura D simplificada
+# =========================
+class SimpleD:
+    def __init__(self):
+        self.data = []
+
+    def insert(self, v, val):
+        heapq.heappush(self.data, (val, v))
+
+    def batch_prepend(self, items):
+        for v, val in items:
+            heapq.heappush(self.data, (val, v))
+
+    def pull(self, M):
+        S = []
+        for _ in range(min(M, len(self.data))):
+            val, v = heapq.heappop(self.data)
+            S.append(v)
+
+        if self.data:
+            x = self.data[0][0]
+        else:
+            x = INF
+
+        return x, S
+
+    def empty(self):
+        return len(self.data) == 0
+
+
+# =========================
+# BMSSP (Algoritmo 3)
+# =========================
+def BMSSP(graph, l, B, S, db, k, t):
     if l == 0:
-        return base_case(B, S, adj, d_hat, k)
-    
-    P, W = find_pivots(B, S, adj, d_hat, k)
-    M = 2**((l-1)*t)
-    D = SpecialDS(M, B)
-    
+        s = next(iter(S))
+        return base_case(graph, s, B, db, k)
+
+    P, W = find_pivots(graph, S, B, db, k)
+
+    D = SimpleD()
+    M = 2 ** ((l - 1) * t)
+
     for x in P:
-        D.insert(x, d_hat[x])
-        
+        D.insert(x, db[x])
+
+    if P:
+        B_prime_0 = min(db[x] for x in P)
+    else:
+        B_prime_0 = B
+
     U = set()
-    limit_U = k * (2**(l * t))
-    
-    while len(U) < limit_U and D.elements:
-        Bi, Si = D.pull()
-        B_prime_i, Ui = bmssp(l - 1, Bi, Si, adj, d_hat, k, t)
-        U.update(Ui)
-        
+    B_prime = B_prime_0
+
+    while len(U) < (k**2) * (2 ** (l * t)) and not D.empty():
+        Bi, Si = D.pull(M)
+
+        if not Si:
+            break
+
+        B_i_prime, Ui = BMSSP(graph, l - 1, Bi, set(Si), db, k, t)
+
+        U |= Ui
+
         K = []
+
         for u in Ui:
-            for v, weight in adj.get(u, []):
-                if d_hat[u] + weight <= d_hat[v]:
-                    new_dist = d_hat[u] + weight
-                    d_hat[v] = new_dist
-                    if Bi <= new_dist < B:
-                        D.insert(v, new_dist)
-                    elif B_prime_i <= new_dist < Bi:
-                        K.append((new_dist, v))
-        
-        # Batch Prepend para manter eficiência [12, 13]
-        add_back = K + [(d_hat[x], x) for x in Si if B_prime_i <= d_hat[x] < Bi]
-        D.batch_prepend(add_back)
-        
-    # Define o limite final B' e finaliza o conjunto W [12, 14]
-    B_prime = B # Simplificação para retorno bem-sucedido
-    U.update({x for x in W if d_hat[x] < B_prime})
+            for v, w in graph.adj[u]:
+                if db[u] + w <= db[v]:
+                    db[v] = db[u] + w
+
+                    if Bi <= db[v] < B:
+                        D.insert(v, db[v])
+                    elif B_i_prime <= db[v] < Bi:
+                        K.append((v, db[v]))
+
+        prepend_items = K + [(x, db[x]) for x in Si if B_i_prime <= db[x] < Bi]
+        D.batch_prepend(prepend_items)
+
+        B_prime = min(B_i_prime, B)
+
+    U |= {x for x in W if db[x] < B_prime}
+
     return B_prime, U
 
-def transformar_para_grau_constante(grafo_original):
-    novo_adj = {}
 
-    for v, vizinhos in grafo_original.items():
-        n = len(vizinhos)
+# =========================
+# SSSP principal
+# =========================
+def sssp_duan_et_al(graph, source):
+    db = defaultdict(lambda: INF)
+    db[source] = 0
 
-        # Se não tem vizinhos, cria pelo menos um nó
-        if n == 0:
-            novo_adj[f"{v}_node_0"] = []
-            continue
+    import math
 
-        for i in range(n):
-            u_original, peso = vizinhos[i]
-            no_atual = f"{v}_node_{i}"
-            proximo_no_ciclo = f"{v}_node_{(i+1)%n}"
+    n = len(graph.adj)
+    k = max(2, int(math.log(n) ** (1/3))) if n > 1 else 2
+    t = max(2, int(math.log(n) ** (2/3))) if n > 1 else 2
+    l = int(math.log(n) / t) + 1 if n > 1 else 1
 
-            if no_atual not in novo_adj:
-                novo_adj[no_atual] = []
+    BMSSP(graph, l, INF, {source}, db, k, t)
 
-            # ciclo interno
-            novo_adj[no_atual].append((proximo_no_ciclo, 0.0))
+    return dict(db)
+# =========================
+# TESTE PRINCIPAL
+# =========================
+if __name__ == "__main__":
+    g = Graph()
 
-            # distribuição das arestas externas
-            grau_u = len(grafo_original[u_original])
-            destino_idx = i % max(1, grau_u)
+    g.add_edge('A', 'B', 1.5)
+    g.add_edge('A', 'C', 2.0)
+    g.add_edge('A', 'E', 2.8)
 
-            novo_adj[no_atual].append(
-                (f"{u_original}_node_{destino_idx}", peso)
-            )
+    g.add_edge('B', 'D', 3.0)
+    g.add_edge('B', 'F', 1.7)
 
-    return novo_adj
+    g.add_edge('C', 'D', 1.2)
+    g.add_edge('C', 'F', 2.5)
+    g.add_edge('C', 'G', 3.1)
+
+    g.add_edge('D', 'H', 2.2)
+
+    g.add_edge('E', 'F', 1.1)
+    g.add_edge('E', 'I', 2.9)
+
+    g.add_edge('F', 'H', 1.4)
+    g.add_edge('F', 'J', 2.6)
+
+    g.add_edge('G', 'J', 1.3)
+
+    g.add_edge('H', 'K', 2.0)
+
+    g.add_edge('I', 'J', 1.8)
+
+    g.add_edge('J', 'K', 1.5)
+    g.add_edge('J', 'L', 2.7)
+
+    g.add_edge('K', 'M', 1.9)
+
+    g.add_edge('L', 'M', 2.3)
+
+    g.adj['M'] = []
+
+    source = 'A'
+
+    print("Rodando BMSSP...")
+    result_bmssp = sssp_duan_et_al(g, source)
+
+    print("\nRodando Dijkstra...")
+    result_dijkstra = dijkstra(g, source)
+
+    print("\nResultados BMSSP:")
+    for k in sorted(result_bmssp):
+        print(f"{k}: {result_bmssp[k]}")
+
+    print("\nResultados Dijkstra:")
+    for k in sorted(result_dijkstra):
+        print(f"{k}: {result_dijkstra[k]}")
+
+    print("\nComparação:")
+    for v in result_dijkstra:
+        if abs(result_bmssp[v] - result_dijkstra[v]) > 1e-6:
+            print(f"ERRO em {v}: BMSSP={result_bmssp[v]}, Dijkstra={result_dijkstra[v]}")
+        else:
+            print(f"{v}: OK")

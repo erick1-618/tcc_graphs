@@ -1,59 +1,65 @@
 import heapq
+from collections import defaultdict
 
-example_graph = {
-    'A': [('B', 1.5), ('C', 2.0)],
-    'B': [('D', 3.0)],
-    'C': [('D', 1.2)],
-    'D': []
-}
+class Graph:
+    def __init__(self):
+        self.adj = defaultdict(list)
 
-def dijkstra(grafo, fonte):
-    # Inicialização: distâncias começam como infinito, fonte como 0 [4]
-    distancias = {vertice: float('inf') for vertice in grafo}
-    distancias[fonte] = 0
-    
-    # Fila de prioridade (heap binário) [2]
-    # Armazena tuplas (distancia_estimada, vertice)
-    pq = [(0, fonte)]
-    
+    def add_edge(self, u, v, w):
+        self.adj[u].append((v, w))
+
+def dijkstra(graph, source):
+    import heapq
+    INF = float('inf')
+
+    # pega todos os vértices (origem + destinos)
+    vertices = set(graph.adj.keys())
+    for u in graph.adj:
+        for v, _ in graph.adj[u]:
+            vertices.add(v)
+
+    dist = {v: INF for v in vertices}
+    dist[source] = 0
+
+    pq = [(0, source)]
+
     while pq:
-        # Extrai o vértice u com a distância mínima [1, 2]
         dist_u, u = heapq.heappop(pq)
-        
-        # Se a distância extraída for maior que a já registrada, ignore
-        if dist_u > distancias[u]:
-            continue
-            
-        # Relaxamento: para cada aresta (u, v) com peso w [1, 4]
-        for v, peso in grafo.get(u, []):
-            # d_hat[v] = d_hat[u] + wuv se for menor que o valor atual [4]
-            if distancias[u] + peso < distancias[v]:
-                distancias[v] = distancias[u] + peso
-                heapq.heappush(pq, (distancias[v], v))
-                
-    return distancias
 
-def bellman_ford(grafo, fonte):
-    # Inicialização conforme descrito no paper [4]
-    distancias = {vertice: float('inf') for vertice in grafo}
-    distancias[fonte] = 0
-    
-    vertices = list(grafo.keys())
+        if dist_u > dist[u]:
+            continue
+
+        for v, w in graph.adj[u]:
+            if dist[u] + w < dist[v]:
+                dist[v] = dist[u] + w
+                heapq.heappush(pq, (dist[v], v))
+
+    return dist
+
+def bellman_ford(graph, source):
+    INF = float('inf')
+
+    # todos os vértices (inclui folhas)
+    vertices = set(graph.adj.keys())
+    for u in graph.adj:
+        for v, _ in graph.adj[u]:
+            vertices.add(v)
+
+    dist = {v: INF for v in vertices}
+    dist[source] = 0
+
     n = len(vertices)
-    
-    # O Bellman-Ford relaxa todas as arestas por várias etapas [1]
-    # Para encontrar caminhos mínimos, são necessários até n-1 passos
+
     for _ in range(n - 1):
-        houve_mudanca = False
-        for u in grafo:
-            for v, peso in grafo[u]:
-                # Operação de relaxamento: d_hat[v] <- d_hat[u] + wuv [4]
-                if distancias[u] + peso < distancias[v]:
-                    distancias[v] = distancias[u] + peso
-                    houve_mudanca = True
-        
-        # Se nenhuma distância mudou em uma iteração, o algoritmo pode parar
-        if not houve_mudanca:
+        changed = False
+
+        for u in graph.adj:
+            for v, w in graph.adj[u]:
+                if dist[u] + w < dist[v]:
+                    dist[v] = dist[u] + w
+                    changed = True
+
+        if not changed:
             break
-            
-    return distancias
+
+    return dist
