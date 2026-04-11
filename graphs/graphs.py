@@ -1,4 +1,6 @@
 import heapq
+import random
+
 from collections import defaultdict
 
 class Graph:
@@ -9,7 +11,6 @@ class Graph:
         self.adj[u].append((v, w))
 
 def dijkstra(graph, source):
-    import heapq
     INF = float('inf')
 
     # pega todos os vértices (origem + destinos)
@@ -63,3 +64,12 @@ def bellman_ford(graph, source):
             break
 
     return dist
+
+def generate_random_graph(num_vertices, edge_probability):
+    g = Graph()
+    for u in range(num_vertices):
+        for v in range(num_vertices):
+            if u != v and random.random() < edge_probability:
+                w = random.randint(1, 10)
+                g.add_edge(u, v, w)
+    return g
