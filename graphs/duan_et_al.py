@@ -1,34 +1,55 @@
 import heapq
 from collections import defaultdict
-from graphs.graphs import Graph
+import logging
+from graphs.graphs import Graph, dijkstra
+from utils.logger import IndentLogger
 
 INF = float('inf')
+logger = IndentLogger(logging.INFO)
 
 # =========================
 # Base Case (Algoritmo 2)
 # =========================
 def base_case(graph, s, B, db, k):
-    U0 = set()
-    heap = [(db[s], s)]
 
-    while heap and len(U0) < k + 1:
-        dist_u, u = heapq.heappop(heap)
+    with logger.section(f"BASE_CASE(s={s}, B={B})"):
 
-        if u in U0:
-            continue
+        U0 = set()
+        heap = [(db[s], s)]
 
-        U0.add(u)
+        while heap and len(U0) < k + 1:
 
-        for v, w in graph.adj[u]:
-            if db[u] + w <= db[v] and db[u] + w < B:
-                db[v] = db[u] + w
-                heapq.heappush(heap, (db[v], v))
+            dist_u, u = heapq.heappop(heap)
 
-    if len(U0) <= k:
-        return B, U0
-    else:
+            logger.debug(f"Heap pop ({dist_u}, {u})")
+
+            if u in U0:
+                continue
+
+            U0.add(u)
+
+            for v, w in graph.adj[u]:
+
+                nova = db[u] + w
+
+                logger.debug(
+                    f"{u}->{v} peso={w} nova={nova}"
+                )
+
+                if nova <= db[v] and nova < B:
+                    db[v] = nova
+                    heapq.heappush(heap, (db[v], v))
+
+                    logger.debug(f"Relaxou {v}")
+
+        logger.debug(f"U0={U0}")
+
+        if len(U0) <= k:
+            return B, U0
+
         B_prime = max(db[v] for v in U0)
         U = {v for v in U0 if db[v] < B_prime}
+
         return B_prime, U
 
 
@@ -36,59 +57,89 @@ def base_case(graph, s, B, db, k):
 # FindPivots (Algoritmo 1)
 # =========================
 def find_pivots(graph, S, B, db, k):
-    W = set(S)
-    Wi_prev = set(S)
 
-    for i in range(k):
-        Wi = set()
-        for u in Wi_prev:
+    with logger.section(f"FIND_PIVOTS(S={S}, B={B}, k={k})"):
+
+        W = set(S)
+        Wi_prev = set(S)
+
+        for i in range(k):
+
+            logger.debug(f"iteração {i}")
+
+            Wi = set()
+
+            for u in Wi_prev:
+                for v, w in graph.adj[u]:
+
+                    nova = db[u] + w
+
+                    logger.debug(
+                        f"{u}->{v} peso={w} nova={nova} atual={db[v]}"
+                    )
+
+                    if nova <= db[v]:
+                        db[v] = nova
+
+                        if db[v] < B:
+                            Wi.add(v)
+                            logger.debug(f"{v} entrou em Wi")
+
+            W |= Wi
+            Wi_prev = Wi
+
+            logger.debug(f"W parcial = {W}")
+
+            if len(W) > k * len(S):
+                logger.debug("corte antecipado")
+                return set(S), W
+
+        parent = {}
+
+        for u in W:
             for v, w in graph.adj[u]:
-                if db[u] + w <= db[v]:
-                    db[v] = db[u] + w
-                    if db[v] < B:
-                        Wi.add(v)
-        W |= Wi
-        Wi_prev = Wi
+                if v in W and db[u] + w == db[v]:
+                    parent[v] = u
 
-        if len(W) > k * len(S):
-            return set(S), W
+        logger.debug(f"parent = {parent}")
 
-    # Constrói F: arestas (u,v) com u,v ∈ W e db[v] == db[u] + wuv
-    # Para cada v em W, guarda seu pai na floresta F
-    parent = {}  # parent[v] = u significa que (u,v) ∈ F
-    for u in W:
-        for v, w in graph.adj[u]:
-            if v in W and db[u] + w == db[v]:
-                # Pela Assumption 2.1 do paper, caminhos têm comprimentos únicos
-                # então cada v tem no máximo um pai em F
-                parent[v] = u
+        roots = {u for u in S if u not in parent}
+        logger.debug(f"roots = {roots}")
 
-    # Raízes de F: vértices em W sem pai, que devem pertencer a S
-    roots = {u for u in S if u not in parent}
+        def count_subtree(root):
+            count = 0
+            stack = [root]
+            visited = set()
 
-    # Para cada raiz em S, conta quantos vértices da árvore estão em W
-    def count_subtree(root):
-        count = 0
-        stack = [root]
-        visited = set()
-        while stack:
-            x = stack.pop()
-            if x in visited:
-                continue
-            visited.add(x)
-            count += 1
-            for v, w in graph.adj[x]:
-                if v in W and parent.get(v) == x:
-                    stack.append(v)
-        return count
+            while stack:
+                x = stack.pop()
 
-    P = set()
-    for u in roots:
-        if count_subtree(u) >= k:
-            P.add(u)
+                if x in visited:
+                    continue
 
-    return P, W
+                visited.add(x)
+                count += 1
 
+                for v, w in graph.adj[x]:
+                    if v in W and parent.get(v) == x:
+                        stack.append(v)
+
+            return count
+
+        P = set()
+
+        for u in roots:
+            tam = count_subtree(u)
+
+            logger.debug(f"subárvore {u} tamanho={tam}")
+
+            if tam >= k:
+                P.add(u)
+
+        logger.debug(f"Pivots = {P}")
+        logger.debug(f"W final = {W}")
+
+        return P, W
 
 # =========================
 # Estrutura D simplificada
@@ -98,102 +149,167 @@ class SimpleD:
         self.data = []
 
     def insert(self, v, val):
+        logger.debug(f"D.insert ({val}, {v})")
         heapq.heappush(self.data, (val, v))
 
     def batch_prepend(self, items):
+        logger.debug(f"D.batch_prepend {items}")
+
         for v, val in items:
             heapq.heappush(self.data, (val, v))
 
     def pull(self, M):
+
+        logger.debug(f"D.pull M={M}")
+
         S = []
+
         for _ in range(min(M, len(self.data))):
             val, v = heapq.heappop(self.data)
+
+            logger.debug(f"D.pop ({val}, {v})")
+
             S.append(v)
 
-        if self.data:
-            x = self.data[0][0]
-        else:
-            x = INF
+        x = self.data[0][0] if self.data else INF
+
+        logger.debug(f"D.ret x={x}, S={S}")
 
         return x, S
 
     def empty(self):
-        return len(self.data) == 0
+        vazio = len(self.data) == 0
+        logger.debug(f"D.empty? {vazio}")
+        return vazio
 
 
 # =========================
 # BMSSP (Algoritmo 3)
 # =========================
 def BMSSP(graph, l, B, S, db, k, t):
-    if l == 0:
-        s = next(iter(S))
-        return base_case(graph, s, B, db, k)
 
-    P, W = find_pivots(graph, S, B, db, k)
+    with logger.section(f"BMSSP(l={l}, B={B}, S={S})"):
 
-    D = SimpleD()
-    M = 2 ** ((l - 1) * t)
+        if l == 0:
+            logger.debug("Caso base")
+            return base_case(graph, next(iter(S)), B, db, k)
 
-    for x in P:
-        D.insert(x, db[x])
+        P, W = find_pivots(graph, S, B, db, k)
 
-    if P:
-        B_prime_0 = min(db[x] for x in P)
-    else:
-        B_prime_0 = B
+        logger.debug(f"Pivots = {P}")
+        logger.debug(f"W = {W}")
 
-    U = set()
-    B_prime = B_prime_0
+        D = SimpleD()
+        M = 2 ** ((l - 1) * t)
 
-    while len(U) < (k**2) * (2 ** (l * t)) and not D.empty():
-        Bi, Si = D.pull(M)
+        logger.debug(f"M = {M}")
 
-        if not Si:
-            break
+        for x in P:
+            D.insert(x, db[x])
 
-        B_i_prime, Ui = BMSSP(graph, l - 1, Bi, set(Si), db, k, t)
+        B_prime = min((db[x] for x in P), default=B)
 
-        U |= Ui
+        U = set()
 
-        K = []
+        while len(U) < (k**2) * (2 ** (l * t)) and not D.empty():
 
-        for u in Ui:
-            for v, w in graph.adj[u]:
-                if db[u] + w <= db[v]:
-                    db[v] = db[u] + w
+            logger.debug(f"Loop principal | U={U}")
 
-                    if Bi <= db[v] < B:
-                        D.insert(v, db[v])
-                    elif B_i_prime <= db[v] < Bi:
-                        K.append((v, db[v]))
+            Bi, Si = D.pull(M)
 
-        prepend_items = K + [(x, db[x]) for x in Si if B_i_prime <= db[x] < Bi]
-        D.batch_prepend(prepend_items)
+            logger.debug(f"Pull -> Bi={Bi}, Si={Si}")
 
-        B_prime = min(B_i_prime, B)
+            if not Si:
+                logger.debug("Si vazio")
+                break
 
-    U |= {x for x in W if db[x] < B_prime}
+            B_i_prime, Ui = BMSSP(
+                graph,
+                l - 1,
+                Bi,
+                set(Si),
+                db,
+                k,
+                t
+            )
 
-    return B_prime, U
+            logger.debug(f"Retorno recursão -> B'={B_i_prime}, Ui={Ui}")
+
+            U |= Ui
+
+            K = []
+
+            for u in Ui:
+                for v, w in graph.adj[u]:
+
+                    nova = db[u] + w
+
+                    logger.debug(
+                        f"Testando {u}->{v} | nova={nova} atual={db[v]}"
+                    )
+
+                    if nova <= db[v]:
+                        db[v] = nova
+
+                        logger.debug(
+                            f"Relaxou {v} = {db[v]}"
+                        )
+
+                        if Bi <= db[v] < B:
+                            D.insert(v, db[v])
+
+                        elif B_i_prime <= db[v] < Bi:
+                            K.append((v, db[v]))
+
+            prepend_items = K + [
+                (x, db[x]) for x in Si
+                if B_i_prime <= db[x] < Bi
+            ]
+
+            D.batch_prepend(prepend_items)
+
+            B_prime = min(B_i_prime, B)
+
+        U |= {x for x in W if db[x] < B_prime}
+
+        logger.debug(f"Saída final -> B'={B_prime}, U={U}")
+
+        return B_prime, U
 
 
 # =========================
 # SSSP principal
 # =========================
 def sssp_duan_et_al(graph, source):
-    db = defaultdict(lambda: INF)
-    db[source] = 0
 
-    import math
+    with logger.section(f"Grafo"):
+        for edge in graph.representation():
+            logger.debug(edge)
 
-    n = len(graph.adj)
-    k = max(2, int(math.log(n) ** (1/3))) if n > 1 else 2
-    t = max(2, int(math.log(n) ** (2/3))) if n > 1 else 2
-    l = int(math.log(n) / t) + 1 if n > 1 else 1
+    with logger.section(f"SSSP(source={source})"):
 
-    BMSSP(graph, l, INF, {source}, db, k, t)
+        db = defaultdict(lambda: INF)
+        db[source] = 0
 
-    return dict(db)
+        import math
+
+        n = len(graph.adj)
+
+        k = max(2, int(math.log(n) ** (1/3))) if n > 1 else 2
+        t = max(2, int(math.log(n) ** (2/3))) if n > 1 else 2
+        l = int(math.log(n) / t) + 1 if n > 1 else 1
+
+        logger.debug(f"n={n}")
+        logger.debug(f"k={k}")
+        logger.debug(f"t={t}")
+        logger.debug(f"l={l}")
+
+        BMSSP(graph, l, INF, {source}, db, k, t)
+
+        logger.debug(f"distâncias finais = {dict(db)}")
+
+        return dict(db)
+
 # =========================
 # TESTE PRINCIPAL
 # =========================
