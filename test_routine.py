@@ -10,10 +10,10 @@ seed(42)
 num_graphs = 5
 
 # Quantidade de vértices
-num_vertices = (5000, 10000, 15000)
+num_vertices = (10000, 50000, 100000)
 
 # Grau médio
-grau_médio = (1.5, 1.25, 1) 
+grau_médio = (5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5, 1) 
 
 # Algoritmos
 algorithms = (dijkstra, sssp_duan_et_al)
@@ -79,7 +79,7 @@ for num_v in num_vertices:
 print("\nExecution finished.")
 
 # Salvar os resultados em CSV
-with open('data/first_results.csv', 'w', newline='') as f:
+with open('data/more_results.csv', 'w', newline='') as f:
     writer = csv.DictWriter(
         f,
         fieldnames=[
