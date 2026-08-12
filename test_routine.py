@@ -1,7 +1,10 @@
 from random import seed
 from graphs.graphs import dijkstra, generate_random_graph
 from graphs.duan_et_al import sssp_duan_et_al
+from time import process_time
 import csv
+import csv
+from datetime import datetime
 
 # Garantir reprodutibilidade
 seed(42)
@@ -10,16 +13,13 @@ seed(42)
 num_graphs = 5
 
 # Quantidade de vértices
-num_vertices = (10000, 50000, 100000, 500000)
+num_vertices = (10, 50, 100)
 
 # Grau médio
-grau_médio = (5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5, 1, 0.9, 0.8, 0.7, 0.6, 0.5) 
+grau_médio = (1, 0.5) 
 
 # Algoritmos
 algorithms = (dijkstra, sssp_duan_et_al)
-
-from time import perf_counter
-import csv
 
 results = []
 
@@ -61,9 +61,9 @@ for num_v in num_vertices:
                         flush=True
                     )
 
-                    start_time = perf_counter()
+                    start_time = process_time()
                     r = alg(g, 0)
-                    end_time = perf_counter()
+                    end_time = process_time()
 
                     delta_time = end_time - start_time
 
@@ -78,8 +78,11 @@ for num_v in num_vertices:
 
 print("\nExecution finished.")
 
+# Nome dessa instância do teste com a data e hora atual
+name = f"results-{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
+
 # Salvar os resultados em CSV
-with open('data/more_sparse.csv', 'w', newline='') as f:
+with open(f'data/{name}.csv', 'w', newline='') as f:
     writer = csv.DictWriter(
         f,
         fieldnames=[
