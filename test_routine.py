@@ -1,10 +1,16 @@
 from random import seed
-from graphs.graphs import dijkstra, generate_random_graph
+from graphs.graphs import dijkstra, generate_random_graph, is_fully_reachable
 from graphs.duan_et_al import sssp_duan_et_al
 from time import process_time
 import csv
 import csv
 from datetime import datetime
+import os
+
+salvar = input("Deseja subir os resultados para o github? (s/n): ")
+
+while salvar not in ("s", "n"):
+    salvar = input("Opção inválida. Deseja subir os resultados para o github? (s/n): ").strip().lower() == "s"
 
 # Garantir reprodutibilidade
 seed(42)
@@ -73,7 +79,8 @@ for num_v in num_vertices:
                         "algorithm": alg.__name__,
                         "execution_time": delta_time,
                         "edge_estimate": edge_estimate,
-                        "graph": f"n{num_v}k{k:.2f}i{i}"
+                        "graph": f"n{num_v}k{k:.2f}i{i}",
+                        "fully_reachable": is_fully_reachable(g, 0, num_v)
                     })
 
 print("\nExecution finished.")
@@ -81,8 +88,14 @@ print("\nExecution finished.")
 # Nome dessa instância do teste com a data e hora atual
 name = f"results-{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
 
+dir = "data/untracked_results/" if salvar else "data/"
+
+# Criar diretório se não existir
+if not os.path.exists(dir):
+    os.makedirs(dir)
+
 # Salvar os resultados em CSV
-with open(f'data/{name}.csv', 'w', newline='') as f:
+with open(f'{dir}{name}.csv', 'w', newline='') as f:
     writer = csv.DictWriter(
         f,
         fieldnames=[
@@ -91,7 +104,8 @@ with open(f'data/{name}.csv', 'w', newline='') as f:
             "algorithm",
             "execution_time",
             "edge_estimate",
-            "graph"
+            "graph",
+            "fully_reachable"
         ]
     )
 

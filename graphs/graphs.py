@@ -1,7 +1,6 @@
 import heapq
 import random
-
-from collections import defaultdict
+from collections import defaultdict, deque
 
 class Graph:
     def __init__(self):
@@ -81,3 +80,17 @@ def generate_random_graph(num_vertices, edge_probability):
                 w = random.randint(1, 10)
                 g.add_edge(u, v, w)
     return g
+
+def is_fully_reachable(graph, source, num_vertices):
+    """Retorna True se todos os vértices são alcançáveis a partir de source."""
+    visited = {source}
+    queue = deque([source])
+
+    while queue:
+        u = queue.popleft()
+        for v, _ in graph.adj[u]:
+            if v not in visited:
+                visited.add(v)
+                queue.append(v)
+
+    return len(visited) == num_vertices
