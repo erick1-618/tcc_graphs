@@ -1,7 +1,18 @@
 from random import seed
-from graphs.graphs import dijkstra, generate_random_graph
+from graphs.graphs import dijkstra, generate_random_graph, is_fully_reachable
 from graphs.duan_et_al import sssp_duan_et_al
+from time import process_time
+from sys import argv
 import csv
+import csv
+from datetime import datetime
+import os
+
+salvar = argv[1]
+
+while salvar not in ("--track", "--untrack"):
+    print("Opção inválida. Deseja subir os resultados para o github? (--track / --untrack): ")
+    exit(0)
 
 # Garantir reprodutibilidade
 seed(42)
@@ -10,16 +21,13 @@ seed(42)
 num_graphs = 5
 
 # Quantidade de vértices
-num_vertices = (10000, 50000, 100000, 500000)
+num_vertices = (10, 50, 100)
 
 # Grau médio
-grau_médio = (5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5, 1, 0.9, 0.8, 0.7, 0.6, 0.5) 
+grau_médio = (1, 0.5) 
 
 # Algoritmos
 algorithms = (dijkstra, sssp_duan_et_al)
-
-from time import perf_counter
-import csv
 
 results = []
 
@@ -61,9 +69,9 @@ for num_v in num_vertices:
                         flush=True
                     )
 
-                    start_time = perf_counter()
+                    start_time = process_time()
                     r = alg(g, 0)
-                    end_time = perf_counter()
+                    end_time = process_time()
 
                     delta_time = end_time - start_time
 
@@ -73,13 +81,23 @@ for num_v in num_vertices:
                         "algorithm": alg.__name__,
                         "execution_time": delta_time,
                         "edge_estimate": edge_estimate,
-                        "graph": f"n{num_v}k{k:.2f}i{i}"
+                        "graph": f"n{num_v}k{k:.2f}i{i}",
+                        "fully_reachable": is_fully_reachable(g, 0, num_v)
                     })
 
 print("\nExecution finished.")
 
+# Nome dessa instância do teste com a data e hora atual
+name = f"results-{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
+
+dir = "data/untracked_results/" if salvar == "--untrack" else "data/"
+
+# Criar diretório se não existir
+if not os.path.exists(dir):
+    os.makedirs(dir)
+
 # Salvar os resultados em CSV
-with open('data/more_sparse.csv', 'w', newline='') as f:
+with open(f'{dir}{name}.csv', 'w', newline='') as f:
     writer = csv.DictWriter(
         f,
         fieldnames=[
@@ -88,7 +106,8 @@ with open('data/more_sparse.csv', 'w', newline='') as f:
             "algorithm",
             "execution_time",
             "edge_estimate",
-            "graph"
+            "graph",
+            "fully_reachable"
         ]
     )
 
