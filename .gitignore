@@ -6,3 +6,4 @@ __pycache__
 venv/
 
 /data/untracked_results/
+input_graphs

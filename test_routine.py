@@ -2,15 +2,17 @@ from random import seed
 from graphs.graphs import dijkstra, generate_random_graph, is_fully_reachable
 from graphs.duan_et_al import sssp_duan_et_al
 from time import process_time
+from sys import argv
 import csv
 import csv
 from datetime import datetime
 import os
 
-salvar = input("Deseja subir os resultados para o github? (s/n): ")
+salvar = argv[1]
 
-while salvar not in ("s", "n"):
-    salvar = input("Opção inválida. Deseja subir os resultados para o github? (s/n): ").strip().lower() == "s"
+while salvar not in ("--track", "--untrack"):
+    print("Opção inválida. Deseja subir os resultados para o github? (--track / --untrack): ")
+    exit(0)
 
 # Garantir reprodutibilidade
 seed(42)
@@ -88,7 +90,7 @@ print("\nExecution finished.")
 # Nome dessa instância do teste com a data e hora atual
 name = f"results-{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
 
-dir = "data/untracked_results/" if salvar else "data/"
+dir = "data/untracked_results/" if salvar == "--untrack" else "data/"
 
 # Criar diretório se não existir
 if not os.path.exists(dir):
