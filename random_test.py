@@ -69,11 +69,15 @@ for num_v in num_vertices:
                         flush=True
                     )
 
+                    source = 0
                     start_time = process_time()
-                    r = alg(g, 0)
+                    dist = alg(g, source)
                     end_time = process_time()
 
                     delta_time = end_time - start_time
+
+                    num_explored = sum(1 for v in dist if dist[v] < float('inf'))
+                    explored_percentage = (num_explored / num_v) * 100
 
                     results.append({
                         "num_vertices": num_v,
@@ -82,7 +86,8 @@ for num_v in num_vertices:
                         "execution_time": delta_time,
                         "edge_estimate": edge_estimate,
                         "graph": f"n{num_v}k{k:.2f}i{i}",
-                        "fully_reachable": is_fully_reachable(g, 0, num_v)
+                        "fully_reachable": is_fully_reachable(g, source, num_v),
+                        "explored_percentage": explored_percentage
                     })
 
 print("\nExecution finished.")
@@ -107,7 +112,8 @@ with open(f'{dir}{name}.csv', 'w', newline='') as f:
             "execution_time",
             "edge_estimate",
             "graph",
-            "fully_reachable"
+            "fully_reachable",
+            "explored_percentage"
         ]
     )
 

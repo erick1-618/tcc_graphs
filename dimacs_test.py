@@ -62,11 +62,15 @@ def process_file(arquivo_gz: str, r: int, algorithms: tuple) -> list[dict]:
                 flush=True
             )
 
+            source = 1
             start_time = process_time()
-            alg(graph, 1)
+            dist = alg(graph, source)
             end_time = process_time()
 
             delta_time = end_time - start_time
+
+            num_explored = sum(1 for v in dist if dist[v] < float('inf'))
+            explored_percentage = (num_explored / num_vertices) * 100
 
             file_results.append({
                 "arquivo": os.path.basename(arquivo_gz),
@@ -75,7 +79,8 @@ def process_file(arquivo_gz: str, r: int, algorithms: tuple) -> list[dict]:
                 "algorithm": alg.__name__,
                 "execution_time": delta_time,
                 "repetition": i,
-                "fully_reachable": is_fully_reachable(graph, 0, num_vertices)
+                "fully_reachable": is_fully_reachable(graph, source, num_vertices),
+                "explored_percentage": explored_percentage
             })
 
     print()
@@ -141,7 +146,8 @@ with open(f'{dir}{name}.csv', 'w', newline='') as f:
             "algorithm",
             "execution_time",
             "repetition",
-            "fully_reachable"
+            "fully_reachable",
+            "explored_percentage"
         ]
     )
 

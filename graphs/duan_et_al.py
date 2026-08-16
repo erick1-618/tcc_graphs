@@ -306,9 +306,9 @@ def sssp_duan_et_al(graph, source):
     db = defaultdict(lambda: INF)
     db[source] = 0
     n = len(graph.adj)
-    k = max(2, int(math.log(n) ** (1 / 3))) if n > 1 else 2
-    t = max(2, int(math.log(n) ** (2 / 3))) if n > 1 else 2
-    l = int(math.log(n) / t) + 1 if n > 1 else 1
+    k = max(2, int(math.log2(n) ** (1 / 3))) if n > 1 else 2
+    t = max(2, int(math.log2(n) ** (2 / 3))) if n > 1 else 2
+    l = int(math.log2(n) / t) + 1 if n > 1 else 1
     BMSSP(graph, l, INF, {source}, db, k, t)
     return dict(db)
 
