@@ -27,9 +27,9 @@ def dijkstra(graph, source):
             vertices.add(v)
 
     dist = {v: INF for v in vertices}
-    dist[source] = 0
+    dist[source] = 0.0
 
-    pq = [(0, source)]
+    pq = [(0.0, source)]
 
     while pq:
         dist_u, u = heapq.heappop(pq)

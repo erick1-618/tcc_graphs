@@ -3,10 +3,11 @@ from graphs.graphs import dijkstra, generate_random_graph, is_fully_reachable
 from graphs.duan_et_al import sssp_duan_et_al
 from time import process_time
 from sys import argv
-import csv
+from graphs.degree_reduction import bounded_out_degree
 import csv
 from datetime import datetime
 import os
+
 
 salvar = argv[1]
 
@@ -20,11 +21,10 @@ seed(42)
 # Quantidade de grafos por configuração
 num_graphs = 5
 
-# Quantidade de vértices
-num_vertices = (10, 50, 100)
+num_vertices = (100, 500, 1000, 5000)
 
 # Grau médio
-grau_médio = (1, 0.5) 
+grau_médio = (5, 3, 1, 0.8, 0.7, 0.5) 
 
 # Algoritmos
 algorithms = (dijkstra, sssp_duan_et_al)
@@ -52,6 +52,7 @@ for num_v in num_vertices:
         for i in range(num_graphs):
 
             g = generate_random_graph(num_v, edge_prob)
+            g = bounded_out_degree(g,2)
 
             for alg in algorithms:
 
