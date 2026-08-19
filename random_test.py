@@ -3,13 +3,18 @@ from graphs.graphs import dijkstra, generate_random_graph, is_fully_reachable
 from graphs.duan_et_al import sssp_duan_et_al
 from time import process_time
 from sys import argv
+import sys
 from graphs.degree_reduction import bounded_out_degree
 import csv
 from datetime import datetime
 import os
 
 
-salvar = argv[1]
+if len(sys.argv) < 2 or sys.argv[1] not in ("--track", "--untrack"):
+    print("Uso: python random_test.py <--track | --untrack>")
+    sys.exit(1)
+
+salvar = sys.argv[1]
 
 while salvar not in ("--track", "--untrack"):
     print("Opção inválida. Deseja subir os resultados para o github? (--track / --untrack): ")

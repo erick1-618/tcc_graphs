@@ -29,10 +29,12 @@ def dijkstra(graph, source):
     dist = {v: INF for v in vertices}
     dist[source] = 0.0
 
-    pq = [(0.0, source)]
+    count = 0
+    pq = [(0, count, source)]
+    
 
     while pq:
-        dist_u, u = heapq.heappop(pq)
+        dist_u, _, u = heapq.heappop(pq)
 
         if dist_u > dist[u]:
             continue
@@ -40,7 +42,8 @@ def dijkstra(graph, source):
         for v, w in graph.adj[u]:
             if dist[u] + w < dist[v]:
                 dist[v] = dist[u] + w
-                heapq.heappush(pq, (dist[v], v))
+                count += 1
+                heapq.heappush(pq, (dist[v], count, v))
 
     return dist
 
