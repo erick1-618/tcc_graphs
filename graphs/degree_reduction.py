@@ -1,12 +1,14 @@
 from graphs.graphs import Graph
 
+CHAIN_EDGE_WEIGHT = 0.0
+
 
 def bounded_out_degree(graph: Graph, max_degree: int = 2) -> Graph:
     
     assert max_degree >= 2, "max_degree precisa ser >= 2"
 
     new_g = Graph()
-    slots_por_no = max_degree - 1  # 1 slot reservado pra próxima aresta da cadeia
+    slots_por_no = max_degree - 1  
 
     for u, edges in graph.adj.items():
         if len(edges) <= max_degree:
@@ -14,9 +16,7 @@ def bounded_out_degree(graph: Graph, max_degree: int = 2) -> Graph:
                 new_g.add_edge(u, v, w)
             continue
 
-        # particiona as arestas originais em blocos de slots_por_no,
-        # exceto o último bloco, que pode absorver até max_degree arestas
-        # (assim evitamos criar um elo final com uma única aresta perdida)
+        
         chunks = []
         i, n = 0, len(edges)
         while i < n:
@@ -34,7 +34,7 @@ def bounded_out_degree(graph: Graph, max_degree: int = 2) -> Graph:
             for v, w in chunk:
                 new_g.add_edge(nome, v, w)
             if idx < len(node_names) - 1:
-                new_g.add_edge(nome, node_names[idx + 1], 0.0)  # aresta da cadeia
+                new_g.add_edge(nome, node_names[idx + 1], CHAIN_EDGE_WEIGHT)  
 
     # preserva vértices-folha (sem arestas de saída) que existiam no original
     for u in graph.adj:

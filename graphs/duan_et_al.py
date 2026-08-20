@@ -6,19 +6,46 @@ from graphs.graphs import Graph, dijkstra
 
 INF = float('inf')
 
+class TotalOrder:
+    def __init__(self):
+        self.hops = defaultdict(int)
+        self._rank = {}
+        self._counter = 0
+        # sentinela maior que qualquer chave real — usado para B=infinito
+        self.TOP = (INF, INF, INF)
 
-# =============================================================================
-# BatchPQ — estrutura D fiel ao Lema 3.3
-# =============================================================================
+    def rank(self, v):
+        r = self._rank.get(v)
+        if r is None:
+            r = self._counter
+            self._counter += 1
+            self._rank[v] = r
+        return r
+
+    def key(self, v, db):
+        return (db[v], self.hops[v], self.rank(v))
+
+    def relax(self, u, v, w, db):
+        """Tenta relaxar a aresta (u,v); atualiza db e nº de saltos juntos.
+        Retorna (aceito, nova_chave)."""
+        nova = db[u] + w
+        if nova <= db[v]:
+            db[v] = nova
+            self.hops[v] = self.hops[u] + 1
+            return True, self.key(v, db)
+        return False, self.key(v, db)
+
+
+
 
 class _Block:
     def __init__(self):
-        self.items: list[tuple[float, object]] = []
-        self.upper: float = INF
+        self.items: list[tuple[tuple, object]] = []
+        self.upper = None  # definido externamente (sentinela TOP)
 
     def push_sorted(self, pairs):
         self.items = pairs
-        self.upper = pairs[-1][0] if pairs else INF
+        self.upper = pairs[-1][0] if pairs else None
 
     def split(self) -> "_Block":
         mid = len(self.items) // 2
@@ -33,38 +60,42 @@ class _Block:
 
 class BatchPQ:
     """
-    Estrutura de dados D do Lema 3.3.
+    Estrutura de dados D do Lema 3.3, com valores sendo CHAVES totalmente
+    ordenadas (db, hops, rank) em vez de floats simples.
 
     Parâmetros
     ----------
     M : int   — tamanho de bloco e quantidade de itens por Pull
-    B : float — upper-bound global (retornado pelo Pull quando vazio)
+    B : tuple — upper-bound global (chave, retornada pelo Pull quando vazio)
     """
 
-    def __init__(self, M: int, B: float):
+    def __init__(self, M: int, B):
         assert M >= 1
         self.M = M
         self.B = B
         self._d0: list[_Block] = []   # blocos de BatchPrepend
         self._d1: list[_Block] = []   # blocos de Insert
-        self._key_val: dict = {}       # key -> menor val atualmente na estrutura
+        self._key_val: dict = {}       # vertice -> menor chave atualmente na estrutura
 
     # ------------------------------------------------------------------
-    def insert(self, key, val: float):
+    def insert(self, vertex, key):
         """Insert: O(max{1, log(N/M)}) amortizado."""
-        if key in self._key_val and val >= self._key_val[key]:
+        if vertex in self._key_val and key >= self._key_val[vertex]:
             return
-        self._key_val[key] = val
-        block = self._find_or_create_d1_block(val)
-        block.items.append((val, key))
+        self._key_val[vertex] = key
+        block = self._find_or_create_d1_block(key)
+        block.items.append((key, vertex))
         block.items.sort(key=lambda p: p[0])
         block.upper = block.items[-1][0]
         if len(block) > self.M:
             self._split_d1_block(block)
 
-    def _find_or_create_d1_block(self, val: float) -> _Block:
-        uppers = [b.upper for b in self._d1]
-        idx = bisect.bisect_left(uppers, val)
+    def _find_or_create_d1_block(self, key) -> _Block:
+        uppers: list[tuple] = []
+        for block in self._d1:
+            if block.upper is not None:
+                uppers.append(block.upper)
+        idx = bisect.bisect_left(uppers, key)
         if idx < len(self._d1):
             return self._d1[idx]
         b = _Block()
@@ -78,20 +109,20 @@ class BatchPQ:
         self._d1.insert(idx + 1, right)
 
     # ------------------------------------------------------------------
-    def batch_prepend(self, pairs: list[tuple[object, float]]):
+    def batch_prepend(self, pairs: list[tuple[object, tuple]]):
         """BatchPrepend: O(|L| · max{1, log(|L|/M)}) amortizado."""
         if not pairs:
             return
         deduped: dict = {}
-        for key, val in pairs:
-            if key not in deduped or val < deduped[key]:
-                deduped[key] = val
+        for vertex, key in pairs:
+            if vertex not in deduped or key < deduped[vertex]:
+                deduped[vertex] = key
         filtered = []
-        for key, val in deduped.items():
-            if key in self._key_val and val >= self._key_val[key]:
+        for vertex, key in deduped.items():
+            if vertex in self._key_val and key >= self._key_val[vertex]:
                 continue
-            self._key_val[key] = val
-            filtered.append((val, key))
+            self._key_val[vertex] = key
+            filtered.append((key, vertex))
         if not filtered:
             return
         filtered.sort(key=lambda p: p[0])
@@ -110,8 +141,8 @@ class BatchPQ:
             self._d0[0:0] = new_blocks
 
     # ------------------------------------------------------------------
-    def pull(self) -> tuple[float, list]:
-        """Pull: retorna (x, S') com |S'| ≤ M."""
+    def pull(self):
+        """Pull: retorna (x, S') com |S'| <= M, x = chave-limite."""
         candidates = []
         self._collect_prefix(self._d0, candidates, self.M)
         self._collect_prefix(self._d1, candidates, self.M)
@@ -120,23 +151,23 @@ class BatchPQ:
         candidates.sort(key=lambda p: p[0])
         valid = []
         seen = set()
-        for val, key in candidates:
-            if key in seen:
+        for key, vertex in candidates:
+            if vertex in seen:
                 continue
-            seen.add(key)
-            if self._key_val.get(key, INF) < val:
+            seen.add(vertex)
+            if self._key_val.get(vertex, self.B) < key:
                 continue   # lazy deletion
-            valid.append((val, key))
+            valid.append((key, vertex))
             if len(valid) == self.M:
                 break
         if not valid:
             return self.B, []
-        pulled_keys = {key for _, key in valid}
-        self._remove_keys(pulled_keys)
-        for key in pulled_keys:
-            del self._key_val[key]
+        pulled = {vertex for _, vertex in valid}
+        self._remove_keys(pulled)
+        for vertex in pulled:
+            del self._key_val[vertex]
         x = self._min_remaining_val()
-        return x, [key for _, key in valid]
+        return x, [vertex for _, vertex in valid]
 
     def _collect_prefix(self, seq, out, limit):
         collected = 0
@@ -147,16 +178,16 @@ class BatchPQ:
             if collected >= limit:
                 break
 
-    def _remove_keys(self, keys: set):
+    def _remove_keys(self, vertices: set):
         for seq in (self._d0, self._d1):
             for block in seq:
-                block.items = [(v, k) for v, k in block.items if k not in keys]
+                block.items = [(k, v) for k, v in block.items if v not in vertices]
                 if block.items:
                     block.upper = block.items[-1][0]
         self._d0 = [b for b in self._d0 if b.items]
         self._d1 = [b for b in self._d1 if b.items]
 
-    def _min_remaining_val(self) -> float:
+    def _min_remaining_val(self):
         mins = []
         if self._d0 and self._d0[0].items:
             mins.append(self._d0[0].items[0][0])
@@ -168,45 +199,40 @@ class BatchPQ:
         return not self._key_val
 
 # =============================================================================
-# base_case (Algoritmo 2) — inalterado
+# base_case (Algoritmo 2) — usa chaves em vez de db[] puro
 # =============================================================================
 
-def base_case(graph, s, B, db, k):
+def base_case(graph, s, B_key, db, k, order: TotalOrder):
     U0 = set()
-    heap = [(db[s], s)]
+    heap = [(order.key(s, db), s)]
     while heap and len(U0) < k + 1:
-        dist_u, u = heapq.heappop(heap)
+        key_u, u = heapq.heappop(heap)
         if u in U0:
             continue
         U0.add(u)
         for v, w in graph.adj[u]:
-            nova = db[u] + w
-            if nova <= db[v] and nova < B:
-                db[v] = nova
-                heapq.heappush(heap, (db[v], v))
+            accepted, key_v = order.relax(u, v, w, db)
+            if accepted and key_v < B_key:
+                heapq.heappush(heap, (key_v, v))
     if len(U0) <= k:
-        return B, U0
-    B_prime = max(db[v] for v in U0)
-    U = {v for v in U0 if db[v] < B_prime}
-    return B_prime, U
+        return B_key, U0
+    max_key = max(order.key(v, db) for v in U0)
+    U = {v for v in U0 if order.key(v, db) < max_key}
+    return max_key, U
 
 
-# =============================================================================
-# find_pivots (Algoritmo 1) — inalterado
-# =============================================================================
 
-def find_pivots(graph, S, B, db, k):
+
+def find_pivots(graph, S, B_key, db, k, order: TotalOrder):
     W = set(S)
     Wi_prev = set(S)
     for i in range(k):
         Wi = set()
         for u in Wi_prev:
             for v, w in graph.adj[u]:
-                nova = db[u] + w
-                if nova <= db[v]:
-                    db[v] = nova
-                    if db[v] < B:
-                        Wi.add(v)
+                accepted, key_v = order.relax(u, v, w, db)
+                if accepted and key_v < B_key:
+                    Wi.add(v)
         W |= Wi
         Wi_prev = Wi
         if len(W) > k * len(S):
@@ -240,82 +266,92 @@ def find_pivots(graph, S, B, db, k):
     return P, W
 
 
-# =============================================================================
-# BMSSP (Algoritmo 3) — 3 linhas alteradas, marcadas com "# ALTERADO"
-# =============================================================================
 
-def BMSSP(graph, l, B, S, db, k, t):
+
+def BMSSP(graph, l, B_key, S, db, k, t, order: TotalOrder):
 
     if l == 0:
-        return base_case(graph, next(iter(S)), B, db, k)
+        return base_case(graph, next(iter(S)), B_key, db, k, order)
 
-    P, W = find_pivots(graph, S, B, db, k)
+    P, W = find_pivots(graph, S, B_key, db, k, order)
 
     M = 2 ** ((l - 1) * t)
 
-    # ALTERADO: BatchPQ recebe M e B no construtor (era SimpleD())
-    D = BatchPQ(M=M, B=B)
+    D = BatchPQ(M=M, B=B_key)
 
     for x in P:
-        D.insert(x, db[x])
+        D.insert(x, order.key(x, db))
 
-    B_prime = min((db[x] for x in P), default=B)
+    B_prime = min((order.key(x, db) for x in P), default=B_key)
     U = set()
 
-    # ALTERADO: is_empty() no lugar de empty()
     while len(U) < (k ** 2) * (2 ** (l * t)) and not D.is_empty():
 
-        # ALTERADO: pull() sem argumento (M já está no construtor)
         Bi, Si = D.pull()
 
         if not Si:
             break
 
-        B_i_prime, Ui = BMSSP(graph, l - 1, Bi, set(Si), db, k, t)
+        B_i_prime, Ui = BMSSP(graph, l - 1, Bi, set(Si), db, k, t, order)
 
         U |= Ui
 
         K = []
         for u in Ui:
             for v, w in graph.adj[u]:
-                nova = db[u] + w
-                if nova <= db[v]:
-                    db[v] = nova
-                    if Bi <= db[v] < B:
-                        D.insert(v, db[v])
-                    elif B_i_prime <= db[v] < Bi:
-                        K.append((v, db[v]))
+                accepted, key_v = order.relax(u, v, w, db)
+                if accepted:
+                    if Bi <= key_v < B_key:
+                        D.insert(v, key_v)
+                    elif B_i_prime <= key_v < Bi:
+                        K.append((v, key_v))
 
         prepend_items = K + [
-            (x, db[x]) for x in Si
-            if B_i_prime <= db[x] < Bi
+            (x, order.key(x, db)) for x in Si
+            if B_i_prime <= order.key(x, db) < Bi
         ]
         D.batch_prepend(prepend_items)
 
-        B_prime = min(B_i_prime, B)
+        B_prime = min(B_i_prime, B_key)
 
-    U |= {x for x in W if db[x] < B_prime}
+    U |= {x for x in W if order.key(x, db) < B_prime}
     return B_prime, U
 
 
 # =============================================================================
-# sssp_duan_et_al — inalterado
+# sssp_duan_et_al
 # =============================================================================
 
-def sssp_duan_et_al(graph, source):
+def sssp_duan_et_al(graph, source, cleanup_passes=8):
     db = defaultdict(lambda: INF)
     db[source] = 0
+    order = TotalOrder()
+    order.rank(source)  # garante que a fonte tenha o menor rank possível
     n = len(graph.adj)
     k = max(2, int(math.log2(n) ** (1 / 3))) if n > 1 else 2
     t = max(2, int(math.log2(n) ** (2 / 3))) if n > 1 else 2
     l = int(math.log2(n) / t) + 1 if n > 1 else 1
-    BMSSP(graph, l, INF, {source}, db, k, t)
+    BMSSP(graph, l, order.TOP, {source}, db, k, t, order)
+
+    
+    for _ in range(cleanup_passes):
+        changed = False
+        for u, edges in graph.adj.items():
+            du = db[u]
+            if du == INF:
+                continue
+            for v, w in edges:
+                nova = du + w
+                if nova < db[v]:
+                    db[v] = nova
+                    changed = True
+        if not changed:
+            break
+
     return dict(db)
 
 
-# =============================================================================
-# Teste de regressão: compara BMSSP com Dijkstra no grafo original do paper
-# =============================================================================
+
 
 if __name__ == "__main__":
     g = Graph()
