@@ -1,5 +1,12 @@
 from random import seed
-from graphs.graphs import dijkstra, generate_random_graph, is_fully_reachable
+from graphs.graphs import (
+    dijkstra,
+    generate_random_graph,
+    is_fully_reachable,
+    save_graph,
+    load_graph,
+    graph_cache_path,
+)
 from graphs.duan_et_al import sssp_duan_et_al
 from time import process_time
 from sys import argv
@@ -56,8 +63,14 @@ for num_v in num_vertices:
 
         for i in range(num_graphs):
 
-            g = generate_random_graph(num_v, edge_prob)
-            g = bounded_out_degree(g,2)
+            graph_path = graph_cache_path("data/graphs/", num_v, k, i)
+           
+            if os.path.exists(graph_path):
+                g_raw = load_graph(graph_path)
+            else:
+                g_raw = generate_random_graph(num_v, edge_prob)
+                save_graph(g_raw, graph_path)
+            g = bounded_out_degree(g_raw, 2)
 
             for alg in algorithms:
 
