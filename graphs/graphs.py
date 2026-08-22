@@ -1,6 +1,8 @@
 import heapq
 import random
 from collections import defaultdict, deque
+import os
+import json
 
 class Graph:
     def __init__(self):
@@ -17,6 +19,43 @@ class Graph:
                 result.append(f"{u} --({w})--> {v}")
         return result
 
+    def save(self, path):
+            vertices = sorted(self.adj.keys(), key=str)
+            edges = [
+                [u, v, w]
+                for u in self.adj
+                for v, w in self.adj[u]
+            ]
+            os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+            with open(path, "w") as f:
+                json.dump({"vertices": vertices, "edges": edges}, f)
+
+    @classmethod
+    def load(cls, path):
+        with open(path) as f:
+            data = json.load(f)
+        g = cls()
+        for v in data["vertices"]:
+            g.adj[v]  # garante a chave mesmo sem arestas (defaultdict)
+        for u, v, w in data["edges"]:
+            g.add_edge(u, v, w)
+        return g
+
+def save_graph(graph, path):
+    """Atalho funcional para graph.save(path), no estilo das outras
+    funções deste módulo (dijkstra, generate_random_graph, etc.)."""
+    graph.save(path)
+
+def load_graph(path):
+    """Atalho funcional para Graph.load(path)."""
+    return Graph.load(path)
+
+
+def graph_cache_path(dir_path, num_v, k, i):
+    """Nome de arquivo padronizado para um grafo salvo, consistente com o
+    identificador 'graph' já usado em random_test.py (ex: n1000k3.00i2)."""
+    return os.path.join(dir_path, f"n{num_v}k{k:.2f}i{i}.json")
+
 def dijkstra(graph, source):
     INF = float('inf')
 
@@ -27,12 +66,14 @@ def dijkstra(graph, source):
             vertices.add(v)
 
     dist = {v: INF for v in vertices}
-    dist[source] = 0
+    dist[source] = 0.0
 
-    pq = [(0, source)]
+    count = 0
+    pq = [(0, count, source)]
+    
 
     while pq:
-        dist_u, u = heapq.heappop(pq)
+        dist_u, _, u = heapq.heappop(pq)
 
         if dist_u > dist[u]:
             continue
@@ -40,7 +81,8 @@ def dijkstra(graph, source):
         for v, w in graph.adj[u]:
             if dist[u] + w < dist[v]:
                 dist[v] = dist[u] + w
-                heapq.heappush(pq, (dist[v], v))
+                count += 1
+                heapq.heappush(pq, (dist[v], count, v))
 
     return dist
 

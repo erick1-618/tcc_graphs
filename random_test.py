@@ -1,14 +1,27 @@
 from random import seed
-from graphs.graphs import dijkstra, generate_random_graph, is_fully_reachable
+from graphs.graphs import (
+    dijkstra,
+    generate_random_graph,
+    is_fully_reachable,
+    save_graph,
+    load_graph,
+    graph_cache_path,
+)
 from graphs.duan_et_al import sssp_duan_et_al
 from time import process_time
 from sys import argv
-import csv
+import sys
+from graphs.degree_reduction import bounded_out_degree
 import csv
 from datetime import datetime
 import os
 
-salvar = argv[1]
+
+if len(sys.argv) < 2 or sys.argv[1] not in ("--track", "--untrack"):
+    print("Uso: python random_test.py <--track | --untrack>")
+    sys.exit(1)
+
+salvar = sys.argv[1]
 
 while salvar not in ("--track", "--untrack"):
     print("Opção inválida. Deseja subir os resultados para o github? (--track / --untrack): ")
@@ -20,11 +33,10 @@ seed(42)
 # Quantidade de grafos por configuração
 num_graphs = 5
 
-# Quantidade de vértices
-num_vertices = (10, 50, 100)
+num_vertices = (100, 500, 1000, 5000)
 
 # Grau médio
-grau_médio = (1, 0.5) 
+grau_médio = (5, 3, 1, 0.8, 0.7, 0.5) 
 
 # Algoritmos
 algorithms = (dijkstra, sssp_duan_et_al)
@@ -51,7 +63,14 @@ for num_v in num_vertices:
 
         for i in range(num_graphs):
 
-            g = generate_random_graph(num_v, edge_prob)
+            graph_path = graph_cache_path("data/graphs/", num_v, k, i)
+           
+            if os.path.exists(graph_path):
+                g_raw = load_graph(graph_path)
+            else:
+                g_raw = generate_random_graph(num_v, edge_prob)
+                save_graph(g_raw, graph_path)
+            g = bounded_out_degree(g_raw, 2)
 
             for alg in algorithms:
 
