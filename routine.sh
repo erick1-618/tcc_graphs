@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+source .venv/bin/activate
+
 # ==== Configurações (ajuste conforme necessário) ====
 SALVAR="--untrack"                 # --track ou --untrack
 GRAPHS_PATH="data/graphs"          # onde generate_graphs.py salva os grafos
