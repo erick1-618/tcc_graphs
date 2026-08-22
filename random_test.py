@@ -9,26 +9,71 @@ from graphs.graphs import (
 )
 from graphs.duan_et_al import sssp_duan_et_al
 from time import process_time
-from sys import argv
 import sys
 from graphs.degree_reduction import bounded_out_degree
 import csv
 from datetime import datetime
 import os
+import argparse
 
 
-if len(sys.argv) < 2 or sys.argv[1] not in ("--track", "--untrack"):
-    print("Uso: python random_test.py <--track | --untrack>")
-    sys.exit(1)
+parser = argparse.ArgumentParser(
+    description="Executa testes comparativos em grafos aleatórios.",
+    formatter_class=argparse.ArgumentDefaultsHelpFormatter
+)
+group = parser.add_mutually_exclusive_group(required=True)
+group.add_argument(
+    "--track",
+    dest="salvar",
+    action="store_const",
+    const="--track",
+    help="Salva resultados na pasta pública 'data/' para serem subidos ao GitHub."
+)
+group.add_argument(
+    "--untrack",
+    dest="salvar",
+    action="store_const",
+    const="--untrack",
+    help="Salva resultados na pasta privada 'data/untracked_results/'."
+)
+parser.add_argument(
+    "--mode",
+    choices=["generate", "load"],
+    default="generate",
+    help="Modo de execução: 'generate' para novos grafos em memória, 'load' para usar grafos salvos."
+)
+parser.add_argument(
+    "--path",
+    type=str,
+    default="data/graphs",
+    help="Caminho do diretório de grafos salvos (usado no modo 'load')."
+)
+parser.add_argument(
+    "--seed",
+    type=int,
+    default=42,
+    help="Semente (seed) para o gerador de números aleatórios (usado no modo 'generate')."
+)
+parser.add_argument(
+    "--executions-per-graph",
+    dest="executions_per_graph",
+    type=int,
+    default=5,
+    help="Quantas vezes cada algoritmo é executado sobre o MESMO grafo, para reduzir ruído na medição de tempo."
+)
+parser.add_argument(
+    "--transform",
+    dest="transform",
+    action="store_true",
+    help="Aplica a transformação de redução de grau (bounded_out_degree) no grafo antes de executar os algoritmos."
+)
 
-salvar = sys.argv[1]
+args = parser.parse_args()
 
-while salvar not in ("--track", "--untrack"):
-    print("Opção inválida. Deseja subir os resultados para o github? (--track / --untrack): ")
-    exit(0)
+salvar = args.salvar
 
 # Garantir reprodutibilidade
-seed(42)
+seed(args.seed)
 
 # Quantidade de grafos por configuração
 num_graphs = 5
@@ -40,6 +85,8 @@ grau_médio = (5, 3, 1, 0.8, 0.7, 0.5)
 
 # Algoritmos
 algorithms = (dijkstra, sssp_duan_et_al)
+
+executions_per_graph = args.executions_per_graph
 
 results = []
 
@@ -63,17 +110,28 @@ for num_v in num_vertices:
 
         for i in range(num_graphs):
 
-            graph_path = graph_cache_path("data/graphs/", num_v, k, i)
-           
-            if os.path.exists(graph_path):
+            if args.mode == "load":
+                graph_path = graph_cache_path(args.path, num_v, k, i)
+                if not os.path.exists(graph_path):
+                    print(
+                        f"\nErro: Grafo não encontrado em '{graph_path}'.\n"
+                        f"Certifique-se de ter gerado os grafos com o script 'generate_graphs.py' "
+                        f"ou rode no modo '--mode generate'."
+                    )
+                    sys.exit(1)
                 g_raw = load_graph(graph_path)
             else:
+                # args.mode == "generate"
                 g_raw = generate_random_graph(num_v, edge_prob)
-                save_graph(g_raw, graph_path)
-            g = bounded_out_degree(g_raw, 2)
+
+            if args.transform:
+                g = bounded_out_degree(g_raw, 2)
+            else:
+                g = g_raw
 
             for alg in algorithms:
 
+                for j in range(executions_per_graph):
 
                     current_execution += 1
                     progress = (current_execution / qt_executions) * 100
@@ -83,7 +141,9 @@ for num_v in num_vertices:
                         f"| num_vertices: {num_v} "
                         f"| k(avg_degree): {k:.2f} "
                         f"| algorithm: {alg.__name__} "
-                        f"| edge_estimate: {edge_estimate:.0f}      ",
+                        f"| edge_estimate: {edge_estimate:.0f}      "
+                        f"| graph: {i + 1}/{num_graphs} "
+                        f"| repetition: {j + 1}/{executions_per_graph}      ",
                         end="",
                         flush=True
                     )

@@ -1,13 +1,14 @@
-from sys import argv
 from time import process_time
 from datetime import datetime
 from graphs.graphs import Graph, dijkstra, is_fully_reachable
 from graphs.duan_et_al import sssp_duan_et_al
+from graphs.degree_reduction import bounded_out_degree
 import gzip
 import shutil
 import csv
 import os
 import glob
+import argparse
 
 
 def load_graph(gr_file: str) -> tuple[Graph, int, int]:
@@ -28,7 +29,7 @@ def load_graph(gr_file: str) -> tuple[Graph, int, int]:
     return graph, int(n), int(m)
 
 
-def process_file(arquivo_gz: str, r: int, algorithms: tuple) -> list[dict]:
+def process_file(arquivo_gz: str, r: int, algorithms: tuple, transformar: bool) -> list[dict]:
     """Descompacta, carrega e roda os algoritmos sobre um único arquivo .gz,
     retornando a lista de resultados (um dict por execução)."""
 
@@ -41,6 +42,9 @@ def process_file(arquivo_gz: str, r: int, algorithms: tuple) -> list[dict]:
             shutil.copyfileobj(f_in, f_out)
 
     graph, num_vertices, num_edges = load_graph(arquivo_gr)
+
+    if transformar:
+        graph = bounded_out_degree(graph, 2)
 
     print("n = {}, m = {}".format(num_vertices, num_edges))
 
@@ -91,20 +95,51 @@ def process_file(arquivo_gz: str, r: int, algorithms: tuple) -> list[dict]:
     return file_results
 
 
-# nome do arquivo .gz OU diretório contendo vários .gz
-arquivo = argv[1]
+parser = argparse.ArgumentParser(
+    description="Executa testes comparativos em grafos DIMACS (.gz).",
+    formatter_class=argparse.ArgumentDefaultsHelpFormatter
+)
+parser.add_argument(
+    "arquivo",
+    type=str,
+    help="Caminho de um arquivo .gz ou de um diretório contendo vários arquivos .gz."
+)
+parser.add_argument(
+    "-r", "--repetitions",
+    dest="r",
+    type=int,
+    required=True,
+    help="Quantidade de repetições por algoritmo, sobre o mesmo grafo."
+)
+group = parser.add_mutually_exclusive_group(required=True)
+group.add_argument(
+    "--track",
+    dest="salvar",
+    action="store_const",
+    const="--track",
+    help="Salva resultados na pasta pública 'data/' para serem subidos ao GitHub."
+)
+group.add_argument(
+    "--untrack",
+    dest="salvar",
+    action="store_const",
+    const="--untrack",
+    help="Salva resultados na pasta privada 'data/untracked_results/'."
+)
+parser.add_argument(
+    "--transform",
+    dest="transformar",
+    action="store_true",
+    help="Aplica a transformação de redução de grau (bounded_out_degree) no grafo antes de executar os algoritmos."
+)
 
+args = parser.parse_args()
+
+arquivo = args.arquivo
 is_directory = os.path.isdir(arquivo)
-
-# repetições por algoritmo
-r = int(argv[2])
-
-# salvar rastreado ou não no git
-salvar = argv[3]
-
-while salvar not in ("--track", "--untrack"):
-    print("Opção inválida. Deseja subir os resultados para o github? (--track / --untrack): ")
-    exit(0)
+r = args.r
+salvar = args.salvar
+transformar = args.transformar
 
 # Algoritmos
 algorithms = (dijkstra, sssp_duan_et_al)
@@ -123,7 +158,7 @@ results = []
 for idx, arquivo_gz in enumerate(arquivos, start=1):
     if is_directory:
         print(f"\n[{idx}/{len(arquivos)}] Processando {os.path.basename(arquivo_gz)}")
-    results.extend(process_file(arquivo_gz, r, algorithms))
+    results.extend(process_file(arquivo_gz, r, algorithms, transformar))
 
 print("\nExecution finished.")
 
