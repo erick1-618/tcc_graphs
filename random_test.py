@@ -78,7 +78,7 @@ seed(args.seed)
 # Quantidade de grafos por configuração
 num_graphs = 5
 
-num_vertices = (100, 500, 1000, 5000)
+num_vertices = (10000, 50000, 100000)
 
 # Grau médio
 grau_médio = (5, 3, 1, 0.8, 0.7, 0.5) 

@@ -3,6 +3,8 @@ __pycache__
 *.pyo
 *.pyd
 
+*.log
+
 venv/
 
 /data/untracked_results/
