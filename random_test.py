@@ -8,6 +8,7 @@ from graphs.graphs import (
     graph_cache_path,
 )
 from graphs.duan_et_al import sssp_duan_et_al
+from graphs.duan_et_al_iter import sssp_duan_et_al_iter
 from time import process_time
 import sys
 from graphs.degree_reduction import bounded_out_degree
@@ -84,7 +85,7 @@ num_vertices = (10000, 50000, 100000)
 grau_médio = (5, 3, 1, 0.8, 0.7, 0.5) 
 
 # Algoritmos
-algorithms = (dijkstra, sssp_duan_et_al)
+algorithms = (dijkstra, sssp_duan_et_al, sssp_duan_et_al_iter)
 
 executions_per_graph = args.executions_per_graph
 

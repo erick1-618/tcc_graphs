@@ -2,6 +2,7 @@ from time import process_time
 from datetime import datetime
 from graphs.graphs import Graph, dijkstra, is_fully_reachable
 from graphs.duan_et_al import sssp_duan_et_al
+from graphs.duan_et_al_iter import sssp_duan_et_al_iter
 from graphs.degree_reduction import bounded_out_degree
 import gzip
 import shutil
@@ -142,7 +143,7 @@ salvar = args.salvar
 transformar = args.transformar
 
 # Algoritmos
-algorithms = (dijkstra, sssp_duan_et_al)
+algorithms = (dijkstra, sssp_duan_et_al, sssp_duan_et_al_iter)
 
 # Monta a lista de arquivos .gz a processar
 if is_directory:
