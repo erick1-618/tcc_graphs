@@ -11,7 +11,7 @@ Os algoritmos estão disponíveis no pacote `graphs`:
 * **`dijkstra`** (`graphs/graphs.py`): Implementação clássica com fila de prioridade binária (`heapq`), servindo como linha de base (*baseline*).
 * **`sssp_duan_et_al`** (`graphs/duan_et_al.py`): Implementação recursiva original do algoritmo BMSSP com relação de ordem total de caminhos e fila de prioridade em lote (`BatchPQ`).
 * **`sssp_duan_et_al_iter`** (`graphs/duan_et_al_iter.py`): Versão iterativa do BMSSP utilizando pilha explícita de execução de *frames*, eliminando a recursão de chamadas em profundidade.
-* **`sssp_duan_et_al_opt`** (`graphs/duan_et_al_opt.py`): Versão otimizada do BMSSP substituindo o gargalo de `BatchPQ` por `BatchPQFast` (remoção preguiçosa de chaves e inserção por busca binária).
+* **`sssp_duan_et_al_opt`** (`graphs/duan_et_al_opt.py`): Versão otimizada do BMSSP com renomeação de vértices para inteiros densos (`0..N-1`), estruturas em listas contíguas, relaxamento de arestas *inlined* e fila em lote otimizada (`BatchPQOpt`).
 * **`bounded_out_degree`** (`graphs/degree_reduction.py`): Transformação que reduz o grau de saída do grafo para um limite constante ($d_{out} \le 2$), conforme pré-requisito teórico do artigo.
 
 ---
@@ -25,17 +25,19 @@ Os algoritmos estão disponíveis no pacote `graphs`:
 │   ├── batch_pq.py         # Estruturas de dados (TotalOrder, BatchPQ e BatchPQFast)
 │   ├── duan_et_al.py       # BMSSP recursivo
 │   ├── duan_et_al_iter.py  # BMSSP iterativo
-│   ├── duan_et_al_opt.py   # BMSSP com BatchPQ otimizada
+│   ├── duan_et_al_opt.py   # BMSSP otimizado (BatchPQOpt e arrays indexados)
 │   └── degree_reduction.py # Redutor de grau de saída
 ├── notebooks/          # Notebooks Jupyter de consolidação e análise estatística
 │   ├── lote1-analise.ipynb # Resultados do Lote 1 (Dijkstra vs BMSSP recursivo)
 │   ├── lote2-analise.ipynb # Resultados do Lote 2 (inclusão do BMSSP iterativo)
 │   ├── lote3-analise.ipynb # Resultados do Lote 3 (inclusão do BMSSP otimizado)
+│   ├── lote4-analise.ipynb # Resultados do Lote 4 (BMSSP-Opt reescrito com arrays contíguos)
 │   └── analysis.ipynb      # Análises exploratórias preliminares
 ├── data/               # Dados gerados pelos experimentos
 │   ├── lote1-tcc2/         # Grafos sintéticos e CSVs do lote 1
 │   ├── lote2-tcc2/         # Grafos sintéticos e CSVs do lote 2
 │   ├── lote3-tcc2/         # Grafos sintéticos e CSVs do lote 3
+│   ├── lote4-tcc2/         # CSVs do lote 4 (executado sobre os grafos do lote 3)
 │   └── legacy/             # Resultados preliminares arquivados
 ├── input_graphs/       # Instâncias reais de redes viárias (DIMACS 9th Challenge)
 ├── generate_graphs.py  # Gerador de instâncias sintéticas G(n, p)
