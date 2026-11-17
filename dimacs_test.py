@@ -1,6 +1,6 @@
 from time import process_time
 from datetime import datetime
-from graphs.graphs import Graph, dijkstra, is_fully_reachable
+from graphs.graphs import Graph, dijkstra, is_fully_reachable, count_vertices
 from graphs.duan_et_al import sssp_duan_et_al
 from graphs.duan_et_al_iter import sssp_duan_et_al_iter
 from graphs.duan_et_al_opt import sssp_duan_et_al_opt
@@ -47,6 +47,11 @@ def process_file(arquivo_gz: str, r: int, algorithms: tuple, transformar: bool) 
 
     if transformar:
         graph = bounded_out_degree(graph, 2)
+        # O grafo transformado tem vértices auxiliares: o percentual de alcance
+        # e fully_reachable devem usar o tamanho do grafo transformado.
+        n_ref = count_vertices(graph)
+    else:
+        n_ref = num_vertices
 
     print("n = {}, m = {}".format(num_vertices, num_edges))
 
@@ -77,7 +82,7 @@ def process_file(arquivo_gz: str, r: int, algorithms: tuple, transformar: bool) 
             delta_time = end_time - start_time
 
             num_explored = sum(1 for v in dist if dist[v] < float('inf'))
-            explored_percentage = (num_explored / num_vertices) * 100
+            explored_percentage = (num_explored / n_ref) * 100
 
             if alg == dijkstra:
                 ref_dist = dist
@@ -99,7 +104,7 @@ def process_file(arquivo_gz: str, r: int, algorithms: tuple, transformar: bool) 
                 "algorithm": alg.__name__,
                 "execution_time": delta_time,
                 "repetition": i,
-                "fully_reachable": is_fully_reachable(graph, source, num_vertices),
+                "fully_reachable": is_fully_reachable(graph, source, n_ref),
                 "explored_percentage": explored_percentage,
                 "is_correct": is_correct,
                 "error_count": error_count

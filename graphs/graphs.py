@@ -115,6 +115,17 @@ def generate_random_graph(num_vertices, edge_probability):
                 g.add_edge(u, v, w)
     return g
 
+def count_vertices(graph):
+    """Número de vértices do grafo efetivamente avaliado (origens e destinos de
+    arestas). Em grafos transformados (grau constante), inclui os vértices
+    auxiliares, e é o denominador correto para percentuais de alcance."""
+    vertices = set(graph.adj.keys())
+    for u in graph.adj:
+        for v, _ in graph.adj[u]:
+            vertices.add(v)
+    return len(vertices)
+
+
 def is_fully_reachable(graph, source, num_vertices):
     """Retorna True se todos os vértices são alcançáveis a partir de source."""
     visited = {source}

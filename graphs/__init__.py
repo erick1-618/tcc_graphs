@@ -1,4 +1,4 @@
-from graphs.graphs import Graph, dijkstra, generate_random_graph, is_fully_reachable, save_graph, load_graph, graph_cache_path
+from graphs.graphs import Graph, dijkstra, generate_random_graph, is_fully_reachable, count_vertices, save_graph, load_graph, graph_cache_path
 from graphs.degree_reduction import bounded_out_degree
 from graphs.duan_et_al import sssp_duan_et_al
 from graphs.duan_et_al_iter import sssp_duan_et_al_iter
@@ -13,6 +13,7 @@ __all__ = [
     "sssp_duan_et_al_opt",
     "generate_random_graph",
     "is_fully_reachable",
+    "count_vertices",
     "save_graph",
     "load_graph",
     "graph_cache_path",

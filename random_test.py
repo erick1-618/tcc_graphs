@@ -3,6 +3,7 @@ from graphs.graphs import (
     dijkstra,
     generate_random_graph,
     is_fully_reachable,
+    count_vertices,
     save_graph,
     load_graph,
     graph_cache_path,
@@ -146,8 +147,13 @@ for num_v in num_vertices:
 
             if args.transform:
                 g = bounded_out_degree(g_raw, 2)
+                # O grafo transformado tem vértices auxiliares: o percentual de
+                # alcance e fully_reachable devem usar o tamanho do grafo
+                # transformado, e não o n nominal do grafo original.
+                n_ref = count_vertices(g)
             else:
                 g = g_raw
+                n_ref = num_v
 
             ref_dist = None
             for alg in algorithms:
@@ -177,7 +183,7 @@ for num_v in num_vertices:
                     delta_time = end_time - start_time
 
                     num_explored = sum(1 for v in dist if dist[v] < float('inf'))
-                    explored_percentage = (num_explored / num_v) * 100
+                    explored_percentage = (num_explored / n_ref) * 100
 
                     if alg == dijkstra:
                         ref_dist = dist
@@ -199,7 +205,7 @@ for num_v in num_vertices:
                         "execution_time": delta_time,
                         "edge_estimate": edge_estimate,
                         "graph": f"n{num_v}k{k:.2f}i{i}",
-                        "fully_reachable": is_fully_reachable(g, source, num_v),
+                        "fully_reachable": is_fully_reachable(g, source, n_ref),
                         "explored_percentage": explored_percentage,
                         "is_correct": is_correct,
                         "error_count": error_count
